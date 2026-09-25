@@ -1,5 +1,6 @@
 import tempfile
 import unittest
+from dataclasses import replace
 from pathlib import Path
 
 import requests
@@ -54,6 +55,39 @@ class DiscoveryTests(unittest.TestCase):
             self.assertIn("https://www.mca.gov.in/content/dam/mca/pdf/companies-act-amendment.pdf", urls)
             self.assertEqual(len(urls), 2)
             self.assertTrue(all(call[1]["allow_redirects"] is False for call in session.calls))
+
+    def test_follows_linked_html_pagination_and_deduplicates_pdf_candidates(self):
+        root = "https://www.mca.gov.in/content/mca/global/en/home.html"
+        page1 = "https://www.mca.gov.in/content/mca/global/en/notices/page1.html"
+        page2 = "https://www.mca.gov.in/content/mca/global/en/notices/page2.html"
+        first_pdf = "https://www.mca.gov.in/content/dam/mca/pdf/companies-act-circular.pdf"
+        second_pdf = "https://www.mca.gov.in/content/dam/mca/pdf/companies-act-notification.pdf"
+
+        class PaginatedSession:
+            def __init__(self):
+                self.headers = {}
+                self.calls = []
+
+            def get(self, url, **kwargs):
+                self.calls.append(url)
+                if url == root:
+                    body = f'<a href="{page1}">Circulars page 1</a>'
+                elif url == page1:
+                    body = f'<a href="{page2}">Next page</a><a href="{first_pdf}">Companies Act Circular</a>'
+                else:
+                    body = f'<a href="{first_pdf}">Companies Act Circular</a><a href="{second_pdf}">Companies Act Notification</a>'
+                return FakeResponse(url, body)
+
+        with tempfile.TemporaryDirectory() as directory:
+            session = PaginatedSession()
+            config = replace(make_config(Path(directory)), max_depth=2)
+            candidates = MCADiscovery(config, session=session).discover()
+            urls = [item.source_url for item in candidates]
+
+            self.assertIn(first_pdf, urls)
+            self.assertIn(second_pdf, urls)
+            self.assertEqual(urls.count(first_pdf), 1)
+            self.assertEqual(session.calls, [root, page1, page2])
 
     def test_reports_discovery_unavailable_on_forbidden_response(self):
         with tempfile.TemporaryDirectory() as directory:

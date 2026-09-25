@@ -14,7 +14,7 @@ Show `app/sources/`, `app/agent/runner.py`, `app/ocr/`, `app/classifier/`, `app/
 python -m pytest
 ```
 
-Show the final summary: `36 passed`. Explain that MCA responses are mocked in the tests and no hundred-document MCA download is attempted.
+Show the final summary: `44 passed`. Explain that MCA responses are mocked in the tests and no hundred-document MCA download is attempted.
 
 ## 1:40-2:30 | Run the local demo
 

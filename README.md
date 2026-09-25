@@ -22,7 +22,7 @@ The assignment is to run a Python agent on a 30-minute schedule, collect up to 1
 - **No access bypass:** this project does not bypass CAPTCHA, authentication, or anti-bot restrictions; it does not use undocumented/private endpoints.
 - **Local demo is not MCA downloading:** the local source and `--demo` report `LOCAL` / `LOCAL DEMO` explicitly. Their success demonstrates the downstream pipeline only. Automatic MCA discovery and downloading remain unverified.
 
-Automated MCA discovery/download could not be verified because the MCA portal returned HTTP 403 to the automated client. The implementation does not bypass this restriction.
+Automated MCA discovery/download could not be verified because the MCA portal returned HTTP 403 to the automated client. The implementation does not bypass this restriction. Live public-UI pagination could not be inspected while MCA access returned 403, so discovery coverage and pagination remain unverified. The bounded static HTML crawler follows linked HTML pages where present; this is not evidence that all MCA documents are found.
 
 The public MCA homepage exposes visible update sections and PDF entries, but a browser being able to display those links does not establish that the agent can fetch them from its runtime environment. The MCA source filters visible candidate titles/source URLs for Companies Act relevance before downloading. This may miss related records whose titles do not mention the Act. The only documented fallback is to save public PDFs through the regular browser and import them locally.
 

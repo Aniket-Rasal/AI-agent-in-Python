@@ -40,6 +40,13 @@ class FakeOCR:
 
 
 class AgentTests(unittest.TestCase):
+    def _seed_successful_documents(self, repo, count, include_digest=None):
+        for index in range(count):
+            digest = include_digest if index == 0 and include_digest else f"{index + 1:064x}"
+            source_url = f"https://www.mca.gov.in/seed-{index}.pdf"
+            repo.add_candidate(f"seed-{index}", source_url, f"Seed document {index}")
+            repo.update(f"seed-{index}", download_status="success", processing_status="complete", sha256=digest)
+
     def test_stops_after_100_unique_and_never_attempts_document_101(self):
         class DistinctDownloader:
             def __init__(self):
@@ -122,6 +129,56 @@ class AgentTests(unittest.TestCase):
             self.assertEqual(repo.status()["classified"], 3)
             self.assertEqual(len(list((config.data_dir / "documents" / "Notifications").glob("*.pdf"))), 3)
 
+    def test_exact_100th_unique_success_stops_before_next_candidate(self):
+        with tempfile.TemporaryDirectory() as directory:
+            config = make_config(Path(directory), 100)
+            repo = Repository(config.database_path)
+            self._seed_successful_documents(repo, 99)
+            candidates = [
+                Candidate("https://www.mca.gov.in/companies-act-100.pdf", "Companies Act document 100", "now"),
+                Candidate("https://www.mca.gov.in/companies-act-101.pdf", "Companies Act document 101", "now"),
+            ]
+            downloader = FakeDownloader()
+            runner = AgentRunner(config, repo, FakeDiscovery(candidates), downloader, FakeOCR())
+
+            outcome = runner.run_once(owner="exact-cap-boundary")
+
+            self.assertEqual(outcome, "limit")
+            self.assertEqual(repo.downloaded_count(), 100)
+            self.assertEqual(downloader.calls, 1)
+            self.assertIsNone(repo.get(str(uuid.uuid5(uuid.NAMESPACE_URL, candidates[1].source_url))))
+
+    def test_duplicate_at_99_does_not_increase_count(self):
+        with tempfile.TemporaryDirectory() as directory:
+            config = make_config(Path(directory), 100)
+            repo = Repository(config.database_path)
+            digest = hashlib.sha256(FakeDownloader().payload).hexdigest()
+            self._seed_successful_documents(repo, 99, include_digest=digest)
+            candidate = Candidate("https://www.mca.gov.in/duplicate-at-99.pdf", "Companies Act duplicate", "now")
+            downloader = FakeDownloader()
+            runner = AgentRunner(config, repo, FakeDiscovery([candidate]), downloader, FakeOCR())
+
+            runner.run_once(owner="duplicate-at-99")
+
+            self.assertEqual(repo.downloaded_count(), 99)
+            self.assertEqual(downloader.calls, 1)
+
+    def test_failed_download_at_99_does_not_increase_count(self):
+        class FailedDownloader:
+            def download(self, url, destination):
+                raise RuntimeError("simulated download failure")
+
+        with tempfile.TemporaryDirectory() as directory:
+            config = make_config(Path(directory), 100)
+            repo = Repository(config.database_path)
+            self._seed_successful_documents(repo, 99)
+            candidate = Candidate("https://www.mca.gov.in/failed-at-99.pdf", "Companies Act document", "now")
+            runner = AgentRunner(config, repo, FakeDiscovery([candidate]), FailedDownloader(), FakeOCR())
+
+            runner.run_once(owner="failed-at-99")
+
+            self.assertEqual(repo.downloaded_count(), 99)
+
     def test_failed_download_does_not_count(self):
         class FailedDownloader:
             def download(self, url, path):
@@ -172,6 +229,8 @@ class AgentTests(unittest.TestCase):
             row = repo.get(doc_id)
             self.assertEqual(row["ocr_status"], "success")
             self.assertEqual(row["processing_status"], "complete")
+            self.assertTrue(Path(row["ocr_path"]).is_file())
+            self.assertEqual(Path(row["ocr_path"]).read_text(encoding="utf-8"), FakeOCR().extract_text(Path(row["local_path"])))
 
     def test_discovery_403_is_persisted_without_fabricating_document_downloads(self):
         class UnavailableDiscovery:

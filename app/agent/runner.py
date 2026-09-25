@@ -77,6 +77,9 @@ class AgentRunner:
                     LOG.info("Agent stopped at MAX_DOCUMENTS=%d", self.config.max_documents)
                     return "limit"
                 self._handle_candidate(candidate, active_source)
+                if self.repository.downloaded_count() >= self.config.max_documents:
+                    LOG.info("Agent stopped at MAX_DOCUMENTS=%d", self.config.max_documents)
+                    return "limit"
             return "complete"
         finally:
             heartbeat_stop.set()

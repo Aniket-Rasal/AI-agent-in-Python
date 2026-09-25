@@ -26,7 +26,7 @@ Run from the project directory after installing `requirements-dev.txt` and Playw
 python -m pytest
 ```
 
-Expected current result: `36 passed`. Tests use local fixtures and mocked MCA responses; they do not download 100 real MCA documents.
+Expected current result: `44 passed`. Tests use local fixtures and mocked MCA responses; they do not download 100 real MCA documents.
 
 Run the deterministic local demonstration:
 

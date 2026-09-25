@@ -40,6 +40,22 @@ class OCRProviderTests(unittest.TestCase):
             self.assertEqual(result, "recognized scanned text")
             ocr.assert_called_once()
 
+    def test_uses_tesseract_for_each_scanned_page(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "two-page-scan.pdf"
+            document = pymupdf.open()
+            for _ in range(2):
+                page = document.new_page()
+                page.draw_rect(pymupdf.Rect(40, 40, 500, 700), color=(0, 0, 0))
+            document.save(path)
+            document.close()
+
+            with patch("pytesseract.image_to_string", side_effect=["first scanned page", "second scanned page"]) as ocr:
+                result = TesseractOCRProvider(min_text_chars=80, max_pages=2).extract_text(path)
+
+            self.assertEqual(result, "first scanned page\n\nsecond scanned page")
+            self.assertEqual(ocr.call_count, 2)
+
     def test_textract_provider_uses_configured_region_and_returns_lines(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "page.pdf"

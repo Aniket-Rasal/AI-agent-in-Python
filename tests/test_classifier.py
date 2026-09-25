@@ -25,6 +25,27 @@ class ClassifierTests(unittest.TestCase):
         result = self.classifier.classify("Companies Act, 2013", "This Act refers to several notifications and orders.")
         self.assertEqual(result.category, "Acts")
 
+    def test_realistic_document_bodies_cover_all_categories(self):
+        examples = {
+            "Acts": "THE COMPANIES ACT, 2013. An Act to consolidate and amend the law relating to companies.",
+            "Notifications": "MINISTRY OF CORPORATE AFFAIRS. NOTIFICATION. G.S.R. 123(E), dated 12 March 2024.",
+            "Circulars": "GENERAL CIRCULAR NO. 02/2024. Clarification on filing requirements under the Companies Act.",
+            "Rules": "COMPANIES (ACCOUNTS) RULES, 2014. In exercise of the powers conferred by section 469, the Central Government makes these rules.",
+            "Orders": "ORDER. The adjudicating officer, after considering the facts, imposes a penalty under the Companies Act.",
+            "Amendments": "COMPANIES (MANAGEMENT AND ADMINISTRATION) AMENDMENT RULES, 2024. The principal rules are amended as follows.",
+            "Other": "Public notice regarding office hours and the location of the regional filing help desk.",
+        }
+
+        for expected, body in examples.items():
+            with self.subTest(expected=expected):
+                result = self.classifier.classify("Ministry of Corporate Affairs document", body)
+                self.assertEqual(result.category, expected)
+                if expected == "Other":
+                    self.assertEqual(result.rule_score, 0.35)
+                else:
+                    self.assertEqual(result.rule_score, 0.75)
+                    self.assertIn("document text", result.rationale)
+
     def test_all_required_categories_are_available(self):
         examples = {
             "Acts": "Companies Act, 2013",
