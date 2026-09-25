@@ -15,8 +15,7 @@
 - [x] JSON-lines logging
 - [x] Tests
 - [ ] Automated MCA download (blocked: automated client received HTTP 403)
-- [ ] GitHub repository (local Git repository initialized; no GitHub remote configured yet)
-- [ ] Demo video
+
 
 ## Evidence
 
